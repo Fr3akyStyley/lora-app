@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-felt: #0f2318;
+  --color-surface: #1a3a2a;
+  --color-panel: #243d2c;
+  --color-gold: #c9a84c;
+  --color-gold-light: #dfc06a;
+  --color-muted: #7a9e85;
+  --color-rim: #2d5a3d;
+}
+
+body {
+  background-color: #0f2318;
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
