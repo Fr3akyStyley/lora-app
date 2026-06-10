@@ -212,6 +212,8 @@ export default function App() {
   const [roundRemaining, setRoundRemaining] = useState([0, 0, 0, 0]);
   const [roundDouble, setRoundDouble] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [screen, setScreen] = useState("home"); // "home" | "setup" | "rules" | "game"
+  const [selectedGames, setSelectedGames] = useState([...GAMES]);
 
   useEffect(() => {
     const saved = localStorage.getItem("lora-game");
@@ -223,6 +225,7 @@ export default function App() {
       setRound(data.round || 0);
       setSelectedGame(data.selectedGame || "");
       setResults(data.results || []);
+      setSelectedGames(data.selectedGames || [...GAMES]);
     }
   }, []);
 
@@ -235,9 +238,10 @@ export default function App() {
       round,
       selectedGame,
       results,
+      selectedGames,
     };
     localStorage.setItem("lora-game", JSON.stringify(data));
-  }, [players, started, playedGames, round, selectedGame, results]);
+  }, [players, started, playedGames, round, selectedGame, results, selectedGames]);
 
   const resetGame = () => {
     setPlayers(["", "", "", ""]);
@@ -251,7 +255,9 @@ export default function App() {
     setRoundWinner(null);
     setRoundRemaining([0, 0, 0, 0]);
     setRoundDouble(false);
+    setSelectedGames([...GAMES]);
     localStorage.removeItem("lora-game");
+    setScreen("home");
   };
 
   const undoLastRound = () => {
@@ -274,14 +280,23 @@ export default function App() {
 
   const allNamesEntered = players.every((p) => p.trim().length);
 
+  const toggleGame = (g) => {
+    setSelectedGames((prev) =>
+      prev.includes(g) ? prev.filter((x) => x !== g) : GAMES.filter((x) => prev.includes(x) || x === g)
+    );
+  };
+
   const startGame = () => {
-    if (allNamesEntered) {
+    if (allNamesEntered && selectedGames.length > 0) {
       setPlayedGames(players.map(() => new Set()));
       setRound(0);
       setStarted(true);
       setResults([]);
+      setScreen("game");
     }
   };
+
+  const totalRounds = players.length * selectedGames.length;
 
   const totals = useMemo(() => {
     const sum = Array(4).fill(0);
@@ -294,15 +309,109 @@ export default function App() {
   }, [results]);
 
   useEffect(() => {
-    if (round === 36) {
+    if (round === totalRounds) {
       const saved = localStorage.getItem("lora-history") || "[]";
       const parsed = JSON.parse(saved);
       parsed.unshift({ players, results, totals, finishedAt: Date.now() });
       localStorage.setItem("lora-history", JSON.stringify(parsed.slice(0, 20)));
     }
-  }, [round]);
+  }, [round, totalRounds]);
 
-  if (!started) {
+  if (screen === "home") {
+    return (
+      <div className="min-h-screen bg-felt text-white flex flex-col">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5 flex-1 flex flex-col justify-center">
+          <h1 className="text-4xl font-bold text-gold text-center tracking-wide">🃏 Lora</h1>
+          <div className="space-y-3">
+            <Button
+              onClick={() => {
+                setPlayers(["", "", "", ""]);
+                setShowHistory(false);
+                setScreen("setup");
+              }}
+              className="w-full py-3 text-base"
+            >
+              Nova partija
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!started}
+              onClick={() => setScreen("game")}
+              className="w-full py-3 text-base"
+            >
+              Nastavi partiju
+            </Button>
+            <Button variant="outline" onClick={() => setScreen("rules")} className="w-full py-3 text-base">
+              Pravila
+            </Button>
+            <Button variant="outline" onClick={() => setShowHistory((s) => !s)} className="w-full py-3 text-base">
+              {showHistory ? "Sakrij istoriju" : "Istorija partija"}
+            </Button>
+            {showHistory && <History />}
+          </div>
+          <Button variant="outline" disabled className="w-full py-2 text-sm opacity-60">
+            🇷🇸 Srpski (Engleski uskoro)
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "rules") {
+    return (
+      <div className="min-h-screen bg-felt text-white">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-4">
+          <h2 className="text-2xl font-bold text-gold text-center">Pravila</h2>
+          <div className="text-sm text-muted space-y-2">
+            <p>Igraju 4 igrača. Pri pokretanju partije bira se koje će se igre igrati (od ukupno 9) — svaki igrač bira po jednom svaku izabranu igru. Na kraju partije pobednik je igrač sa najmanje (najnižim brojem) poena.</p>
+          </div>
+          <div className="space-y-3 text-sm">
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što više"]}</div>
+              <p className="text-muted">Cilj je odneti što više ruku (od ukupno 8). Svaka odneta ruka nosi -2 poena.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što manje"]}</div>
+              <p className="text-muted">Cilj je odneti što manje ruku. Svaka odneta ruka nosi +2 poena. Ako igrač ne odnese nijednu ruku, dobija -16 poena.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što više srca"]}</div>
+              <p className="text-muted">Cilj je odneti što više srca (od ukupno 8). Svako odneto srce nosi -2 poena.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što manje srca"]}</div>
+              <p className="text-muted">Cilj je odneti što manje srca. Svako odneto srce nosi +2 poena.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Dame"]}</div>
+              <p className="text-muted">Svaka odneta dama nosi +4 poena. Ako jedan igrač odnese sve 4 dame, dobija -16 poena.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["J tref"]}</div>
+              <p className="text-muted">Igrač koji nosi žandara trefa dobija +16 poena, ostali 0.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["K srce + zadnja"]}</div>
+              <p className="text-muted">Igrač koji nosi K srce dobija +8 poena, a igrač koji nosi zadnju ruku dobija +8 poena. Isti igrač može nositi oba (+16).</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Tačkice"]}</div>
+              <p className="text-muted">Svaki put kad igrač ne može da odigra kartu, dobija tačkicu. Pobednik runde (ko prvi isprazni ruku) dobija -8 poena. Ostali igrači dobijaju zbir svojih tačkica i preostalih karata u ruci. Ako je sto zatvoreno istom kartom kojom je i otvoreno, svi poeni u toj rundi se duplaju.</p>
+            </div>
+            <div className="bg-surface border border-rim rounded-lg p-3">
+              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Intuicija"]}</div>
+              <p className="text-muted">Cilj je sklopiti tačan broj nizova (ukupno 8 po rundi). Svaki sklopljeni niz nosi -2 poena.</p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
+            Nazad
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "setup") {
     return (
       <div className="min-h-screen bg-felt text-white flex flex-col">
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5">
@@ -318,13 +427,36 @@ export default function App() {
               />
             ))}
           </div>
-          <Button disabled={!allNamesEntered} onClick={startGame} className="w-full py-3 text-base">
+          <div className="space-y-2">
+            <h2 className="text-base font-semibold text-center text-muted">
+              Izaberi igre ({selectedGames.length}/{GAMES.length})
+            </h2>
+            <div className="space-y-2">
+              {GAMES.map((g) => (
+                <label
+                  key={g}
+                  className="flex items-center gap-3 bg-surface border border-rim rounded-lg px-3 py-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedGames.includes(g)}
+                    onChange={() => toggleGame(g)}
+                    className="w-4 h-4 accent-gold"
+                  />
+                  <span className="font-medium">{GAME_DISPLAY[g] ?? g}</span>
+                </label>
+              ))}
+            </div>
+            <div className="text-center text-muted text-sm">
+              Ukupno rundi: {totalRounds}
+            </div>
+          </div>
+          <Button disabled={!allNamesEntered || selectedGames.length === 0} onClick={startGame} className="w-full py-3 text-base">
             Započni partiju
           </Button>
-          <Button variant="outline" onClick={() => setShowHistory((s) => !s)} className="w-full">
-            {showHistory ? "Sakrij istoriju" : "Prikaži istoriju"}
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full">
+            Nazad
           </Button>
-          {showHistory && <History />}
         </div>
       </div>
     );
@@ -386,7 +518,7 @@ export default function App() {
     </div>
   );
 
-  const finished = round >= 36;
+  const finished = round >= totalRounds;
   if (finished) {
     return (
       <div className="min-h-screen bg-felt text-white">
@@ -395,6 +527,7 @@ export default function App() {
           <Totals players={players} totals={totals} />
           <RoundHistory />
           <Button variant="outline" onClick={resetGame} className="w-full py-3">Nova partija</Button>
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">Nazad u meni</Button>
         </div>
       </div>
     );
@@ -406,15 +539,18 @@ export default function App() {
     return (
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
+            ← Nazad u meni
+          </Button>
           <Totals players={players} totals={totals} />
           <div className="text-center">
-            <div className="text-muted text-sm">Runda {round + 1} / 36</div>
+            <div className="text-muted text-sm">Runda {round + 1} / {totalRounds}</div>
             <div className="text-lg font-bold">
               Bira: <span className="text-gold">{pickerName}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {GAMES.map((g) => {
+            {selectedGames.map((g) => {
               const disabled = already.has(g);
               return (
                 <Button
@@ -507,6 +643,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-felt text-white">
       <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
+        <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
+          ← Nazad u meni
+        </Button>
         <Totals players={players} totals={totals} />
         <div className="text-center">
           <div className="text-muted text-sm">Runda {round + 1}</div>
