@@ -14,6 +14,19 @@ const GAMES = [
   "Intuicija",
 ];
 
+// Prikaz imena igara sa emoji simbolima (interna imena ostaju ista)
+const GAME_DISPLAY = {
+  "Što više": "🔼 Što više",
+  "Što manje": "🔽 Što manje",
+  "Što više srca": "♥️🔼 Više srca",
+  "Što manje srca": "♥️🔽 Manje srca",
+  "Dame": "👸 Dame",
+  "J tref": "♣️J Žandar",
+  "K srce + zadnja": "K♥️+Zadnja",
+  "Tačkice": "⚫ Tačkice",
+  "Intuicija": "🔮 Intuicija",
+};
+
 // Igre kod kojih igrači "nose" karte/ruke do ukupnog zbira (8), a poeni se računaju automatski
 const TRICKS_CONFIG = {
   "Što više": { total: 8, per: -2 },
@@ -362,7 +375,7 @@ export default function App() {
             <tr key={i} className={i % 2 === 0 ? "bg-surface" : ""}>
               <td className="border border-rim p-1 text-center text-muted">{i + 1}</td>
               <td className="border border-rim p-1">{players[r.round % 4]}</td>
-              <td className="border border-rim p-1">{r.game}</td>
+              <td className="border border-rim p-1">{GAME_DISPLAY[r.game] ?? r.game}</td>
               {r.scores.map((s, j) => (
                 <td key={j} className="border border-rim p-1 text-center">{s}</td>
               ))}
@@ -411,7 +424,7 @@ export default function App() {
                   onClick={() => !disabled && chooseGame(g)}
                   className="w-full py-3"
                 >
-                  {g}
+                  {GAME_DISPLAY[g] ?? g}
                 </Button>
               );
             })}
@@ -497,7 +510,7 @@ export default function App() {
         <Totals players={players} totals={totals} />
         <div className="text-center">
           <div className="text-muted text-sm">Runda {round + 1}</div>
-          <div className="text-lg font-bold text-gold">{selectedGame}</div>
+          <div className="text-lg font-bold text-gold">{GAME_DISPLAY[selectedGame] ?? selectedGame}</div>
         </div>
         {selectedGame === "Tačkice" ? (
           <>
