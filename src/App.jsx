@@ -14,6 +14,139 @@ const GAMES = [
   "Intuicija",
 ];
 
+// Igre kod kojih igrači "nose" karte/ruke do ukupnog zbira (8), a poeni se računaju automatski
+const TRICKS_CONFIG = {
+  "Što više": { total: 8, per: -2 },
+  "Što manje": { total: 8, per: 2, zeroBonus: -16 },
+  "Što više srca": { total: 8, per: -2 },
+  "Što manje srca": { total: 8, per: 2 },
+  "Dame": { total: 4, per: 4, allBonus: -16 },
+};
+
+// Igre gde se bira igrač(i) koji nose poene
+const PICK_CONFIG = {
+  "J tref": { picks: [{ label: "Ko nosi žandara trefa?", value: 16 }] },
+  "K srce + zadnja": {
+    picks: [
+      { label: "Ko nosi K srce?", value: 8 },
+      { label: "Ko nosi zadnju ruku?", value: 8 },
+    ],
+  },
+};
+
+const CounterRow = ({ label, value, onChange, min = 0 }) => (
+  <div className="flex items-center justify-between gap-2 bg-surface border border-rim rounded-lg px-3 py-2">
+    <span className="font-medium truncate">{label}</span>
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => onChange(-1)}
+        disabled={value <= min}
+        className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold disabled:opacity-30"
+      >
+        −
+      </button>
+      <span className="w-6 text-center text-xl font-bold">{value}</span>
+      <button
+        onClick={() => onChange(1)}
+        className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold"
+      >
+        +
+      </button>
+    </div>
+  </div>
+);
+
+// Igre gde se broje "stvari" sa ukupnim zbirom ograničenim na total
+const FREE_COUNTER_CONFIG = {
+  "Intuicija": { per: -2, total: 8 },
+};
+
+const FreeCounter = ({ players, counts, onChange, total }) => {
+  const sum = counts.reduce((a, b) => a + b, 0);
+  return (
+    <div className="space-y-3">
+      {players.map((player, idx) => (
+        <div key={idx} className="flex items-center justify-between gap-2 bg-surface border border-rim rounded-lg px-3 py-2">
+          <span className="font-medium truncate">{player}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onChange(idx, -1)}
+              disabled={counts[idx] === 0}
+              className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-xl font-bold">{counts[idx]}</span>
+            <button
+              onClick={() => onChange(idx, 1)}
+              disabled={total !== undefined && sum >= total}
+              className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      ))}
+      {total !== undefined && (
+        <div className={`text-center text-sm font-medium ${sum === total ? "text-gold" : "text-muted"}`}>
+          Ukupno: {sum} / {total}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PlayerPicker = ({ players, label, selected, onSelect }) => (
+  <div className="space-y-2">
+    <div className="text-sm text-muted text-center">{label}</div>
+    <div className="grid grid-cols-2 gap-2">
+      {players.map((p, idx) => (
+        <Button
+          key={idx}
+          variant={selected === idx ? "default" : "outline"}
+          onClick={() => onSelect(idx)}
+          className="w-full py-3"
+        >
+          {p}
+        </Button>
+      ))}
+    </div>
+  </div>
+);
+
+const TrickCounter = ({ players, counts, total, onChange }) => {
+  const sum = counts.reduce((a, b) => a + b, 0);
+  return (
+    <div className="space-y-3">
+      {players.map((player, idx) => (
+        <div key={idx} className="flex items-center justify-between gap-2 bg-surface border border-rim rounded-lg px-3 py-2">
+          <span className="font-medium truncate">{player}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onChange(idx, -1)}
+              disabled={counts[idx] === 0}
+              className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-xl font-bold">{counts[idx]}</span>
+            <button
+              onClick={() => onChange(idx, 1)}
+              disabled={sum >= total}
+              className="w-9 h-9 rounded-lg bg-panel border border-rim text-gold text-xl font-bold disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      ))}
+      <div className={`text-center text-sm font-medium ${sum === total ? "text-gold" : "text-muted"}`}>
+        Ukupno: {sum} / {total}
+      </div>
+    </div>
+  );
+};
+
 const Totals = ({ players, totals }) => (
   <div className="bg-panel px-4 py-3 rounded-xl border border-rim">
     <div className="grid grid-cols-4 gap-1 text-center text-xs font-medium text-muted mb-1">
@@ -60,7 +193,11 @@ export default function App() {
   const [round, setRound] = useState(0);
   const [selectedGame, setSelectedGame] = useState("");
   const [results, setResults] = useState([]);
-  const [roundScores, setRoundScores] = useState(["", "", "", ""]);
+  const [roundCounts, setRoundCounts] = useState([0, 0, 0, 0]);
+  const [roundPicks, setRoundPicks] = useState([]);
+  const [roundWinner, setRoundWinner] = useState(null);
+  const [roundRemaining, setRoundRemaining] = useState([0, 0, 0, 0]);
+  const [roundDouble, setRoundDouble] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
@@ -96,7 +233,11 @@ export default function App() {
     setRound(0);
     setSelectedGame("");
     setResults([]);
-    setRoundScores(["", "", "", ""]);
+    setRoundCounts([0, 0, 0, 0]);
+    setRoundPicks([]);
+    setRoundWinner(null);
+    setRoundRemaining([0, 0, 0, 0]);
+    setRoundDouble(false);
     localStorage.removeItem("lora-game");
   };
 
@@ -126,7 +267,6 @@ export default function App() {
       setRound(0);
       setStarted(true);
       setResults([]);
-      setRoundScores(["", "", "", ""]);
     }
   };
 
@@ -185,13 +325,22 @@ export default function App() {
     updated[pickerIndex].add(game);
     setPlayedGames(updated);
     setSelectedGame(game);
+    setRoundCounts([0, 0, 0, 0]);
+    setRoundPicks((PICK_CONFIG[game]?.picks ?? []).map(() => null));
+    setRoundWinner(null);
+    setRoundRemaining([0, 0, 0, 0]);
+    setRoundDouble(false);
   };
 
   const submitScores = (scores) => {
     setResults((prev) => [...prev, { round, game: selectedGame, scores }]);
     setSelectedGame("");
     setRound((r) => r + 1);
-    setRoundScores(["", "", "", ""]);
+    setRoundCounts([0, 0, 0, 0]);
+    setRoundPicks([]);
+    setRoundWinner(null);
+    setRoundRemaining([0, 0, 0, 0]);
+    setRoundDouble(false);
   };
 
   const RoundHistory = () => (
@@ -277,14 +426,70 @@ export default function App() {
     );
   }
 
-  const handleScoreChange = (idx, val) => {
-    if (!/^-?\d*$/.test(val)) return;
-    const copy = [...roundScores];
-    copy[idx] = val;
-    setRoundScores(copy);
+  const tricksConfig = TRICKS_CONFIG[selectedGame];
+
+  const adjustCount = (idx, delta) => {
+    setRoundCounts((prev) => {
+      const sum = prev.reduce((a, b) => a + b, 0);
+      if (sum + delta < 0 || sum + delta > tricksConfig.total) return prev;
+      const copy = [...prev];
+      copy[idx] = Math.max(0, copy[idx] + delta);
+      return copy;
+    });
   };
 
-  const allScoresEntered = roundScores.every((s) => s.trim() !== "" && !isNaN(Number(s)));
+  const tricksSum = roundCounts.reduce((a, b) => a + b, 0);
+  const tricksScores = roundCounts.map((c) => {
+    if (tricksConfig?.allBonus !== undefined && c === tricksConfig.total) return tricksConfig.allBonus;
+    if (c === 0 && tricksConfig?.zeroBonus !== undefined) return tricksConfig.zeroBonus;
+    return c * (tricksConfig?.per ?? 0);
+  });
+
+  const freeCounterConfig = FREE_COUNTER_CONFIG[selectedGame];
+
+  const adjustFreeCount = (idx, delta) => {
+    setRoundCounts((prev) => {
+      const sum = prev.reduce((a, b) => a + b, 0);
+      if (prev[idx] + delta < 0) return prev;
+      if (freeCounterConfig?.total !== undefined && sum + delta > freeCounterConfig.total) return prev;
+      const copy = [...prev];
+      copy[idx] = copy[idx] + delta;
+      return copy;
+    });
+  };
+
+  const freeCounterScores = roundCounts.map((c) => c * (freeCounterConfig?.per ?? 0));
+  const freeCounterSum = roundCounts.reduce((a, b) => a + b, 0);
+
+  const adjustRemaining = (idx, delta) => {
+    setRoundRemaining((prev) => {
+      if (prev[idx] + delta < 0) return prev;
+      const copy = [...prev];
+      copy[idx] = copy[idx] + delta;
+      return copy;
+    });
+  };
+
+  const tackiceMultiplier = roundDouble ? 2 : 1;
+  const tackiceScores = players.map((_, idx) =>
+    idx === roundWinner ? -8 * tackiceMultiplier : (roundRemaining[idx] + roundCounts[idx]) * tackiceMultiplier
+  );
+
+  const pickConfig = PICK_CONFIG[selectedGame];
+
+  const setPick = (pickIdx, playerIdx) => {
+    const copy = [...roundPicks];
+    copy[pickIdx] = playerIdx;
+    setRoundPicks(copy);
+  };
+
+  const picksComplete = pickConfig ? roundPicks.every((p) => p !== null) : false;
+  const pickScores = players.map((_, playerIdx) =>
+    pickConfig?.picks.reduce(
+      (sum, pick, pickIdx) => sum + (roundPicks[pickIdx] === playerIdx ? pick.value : 0),
+      0
+    ) ?? 0
+  );
 
   return (
     <div className="min-h-screen bg-felt text-white">
@@ -294,25 +499,94 @@ export default function App() {
           <div className="text-muted text-sm">Runda {round + 1}</div>
           <div className="text-lg font-bold text-gold">{selectedGame}</div>
         </div>
-        <div className="space-y-3">
-          {players.map((player, idx) => (
-            <div key={idx} className="flex items-center gap-3">
-              <label className="w-24 text-sm font-medium truncate">{player}</label>
-              <Input
-                value={roundScores[idx]}
-                onChange={(e) => handleScoreChange(idx, e.target.value)}
-                className="flex-1"
-              />
+        {selectedGame === "Tačkice" ? (
+          <>
+            <div className="space-y-2">
+              <div className="text-sm text-muted text-center">Tačkice (svaki put kad igrač ne može da odigra)</div>
+              <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} />
             </div>
-          ))}
-        </div>
-        <Button
-          disabled={!allScoresEntered}
-          onClick={() => submitScores(roundScores.map(Number))}
-          className="w-full py-3 text-base"
-        >
-          Završi rundu
-        </Button>
+            <PlayerPicker
+              players={players}
+              label="Ko je ispraznio ruku (pobednik runde)?"
+              selected={roundWinner}
+              onSelect={setRoundWinner}
+            />
+            {roundWinner !== null && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted text-center">Preostale karte u ruci</div>
+                {players.map((player, idx) =>
+                  idx === roundWinner ? null : (
+                    <CounterRow
+                      key={idx}
+                      label={player}
+                      value={roundRemaining[idx]}
+                      onChange={(d) => adjustRemaining(idx, d)}
+                    />
+                  )
+                )}
+                <label className="flex items-center gap-2 justify-center text-sm pt-1">
+                  <input
+                    type="checkbox"
+                    checked={roundDouble}
+                    onChange={(e) => setRoundDouble(e.target.checked)}
+                    className="w-4 h-4 accent-gold"
+                  />
+                  Zatvoreno istom kartom kojom je otvoreno (duplo)
+                </label>
+              </div>
+            )}
+            <Button
+              disabled={roundWinner === null}
+              onClick={() => submitScores(tackiceScores)}
+              className="w-full py-3 text-base"
+            >
+              Završi rundu
+            </Button>
+          </>
+        ) : tricksConfig ? (
+          <>
+            <TrickCounter players={players} counts={roundCounts} total={tricksConfig.total} onChange={adjustCount} />
+            <Button
+              disabled={tricksSum !== tricksConfig.total}
+              onClick={() => submitScores(tricksScores)}
+              className="w-full py-3 text-base"
+            >
+              Završi rundu
+            </Button>
+          </>
+        ) : freeCounterConfig ? (
+          <>
+            <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} total={freeCounterConfig.total} />
+            <Button
+              disabled={freeCounterConfig.total !== undefined && freeCounterSum !== freeCounterConfig.total}
+              onClick={() => submitScores(freeCounterScores)}
+              className="w-full py-3 text-base"
+            >
+              Završi rundu
+            </Button>
+          </>
+        ) : pickConfig ? (
+          <>
+            <div className="space-y-4">
+              {pickConfig.picks.map((pick, pickIdx) => (
+                <PlayerPicker
+                  key={pickIdx}
+                  players={players}
+                  label={pick.label}
+                  selected={roundPicks[pickIdx]}
+                  onSelect={(playerIdx) => setPick(pickIdx, playerIdx)}
+                />
+              ))}
+            </div>
+            <Button
+              disabled={!picksComplete}
+              onClick={() => submitScores(pickScores)}
+              className="w-full py-3 text-base"
+            >
+              Završi rundu
+            </Button>
+          </>
+        ) : null}
         <div className="flex gap-2">
           <Button variant="outline" onClick={undoLastRound} className="flex-1">Poništi rundu</Button>
           <Button variant="destructive" onClick={resetGame} className="flex-1">Resetuj</Button>
