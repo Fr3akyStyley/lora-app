@@ -214,6 +214,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [screen, setScreen] = useState("home"); // "home" | "setup" | "rules" | "game"
   const [selectedGames, setSelectedGames] = useState([...GAMES]);
+  const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
     const saved = localStorage.getItem("lora-game");
@@ -227,6 +228,8 @@ export default function App() {
       setResults(data.results || []);
       setSelectedGames(data.selectedGames || [...GAMES]);
     }
+    const savedProfiles = localStorage.getItem("lora-profiles");
+    if (savedProfiles) setProfiles(JSON.parse(savedProfiles));
   }, []);
 
   useEffect(() => {
@@ -280,6 +283,18 @@ export default function App() {
 
   const allNamesEntered = players.every((p) => p.trim().length);
 
+  const pickProfile = (name) => {
+    const emptyIdx = players.findIndex((p) => !p.trim().length);
+    if (emptyIdx === -1) return;
+    handleNameChange(emptyIdx, name);
+  };
+
+  const removeProfile = (name) => {
+    const updated = profiles.filter((p) => p !== name);
+    setProfiles(updated);
+    localStorage.setItem("lora-profiles", JSON.stringify(updated));
+  };
+
   const toggleGame = (g) => {
     setSelectedGames((prev) =>
       prev.includes(g) ? prev.filter((x) => x !== g) : GAMES.filter((x) => prev.includes(x) || x === g)
@@ -288,6 +303,13 @@ export default function App() {
 
   const startGame = () => {
     if (allNamesEntered && selectedGames.length > 0) {
+      const updatedProfiles = [...profiles];
+      players.forEach((p) => {
+        const name = p.trim();
+        if (name && !updatedProfiles.includes(name)) updatedProfiles.push(name);
+      });
+      setProfiles(updatedProfiles);
+      localStorage.setItem("lora-profiles", JSON.stringify(updatedProfiles));
       setPlayedGames(players.map(() => new Set()));
       setRound(0);
       setStarted(true);
@@ -427,6 +449,42 @@ export default function App() {
               />
             ))}
           </div>
+          {profiles.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold text-center text-muted">Sačuvani igrači</h2>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {profiles.map((name) => (
+                  <div key={name} className="flex items-center gap-1 bg-surface border border-rim rounded-lg pl-3 pr-1 py-1">
+                    <button onClick={() => pickProfile(name)} className="font-medium text-sm">
+                      {name}
+                    </button>
+                    <button
+                      onClick={() => removeProfile(name)}
+                      className="w-6 h-6 rounded text-muted hover:text-white text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <Button disabled={!allNamesEntered} onClick={() => setScreen("setup-games")} className="w-full py-3 text-base">
+            Dalje
+          </Button>
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full">
+            Nazad
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "setup-games") {
+    return (
+      <div className="min-h-screen bg-felt text-white flex flex-col">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5">
+          <h1 className="text-3xl font-bold text-gold text-center tracking-wide">🃏 Lora</h1>
           <div className="space-y-2">
             <h2 className="text-base font-semibold text-center text-muted">
               Izaberi igre ({selectedGames.length}/{GAMES.length})
@@ -454,7 +512,7 @@ export default function App() {
           <Button disabled={!allNamesEntered || selectedGames.length === 0} onClick={startGame} className="w-full py-3 text-base">
             Započni partiju
           </Button>
-          <Button variant="outline" onClick={() => setScreen("home")} className="w-full">
+          <Button variant="outline" onClick={() => setScreen("setup")} className="w-full">
             Nazad
           </Button>
         </div>
