@@ -418,11 +418,24 @@ export default function App() {
             </div>
             <div className="bg-surface border border-rim rounded-lg p-3">
               <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Tačkice"]}</div>
-              <p className="text-muted">Svaki put kad igrač ne može da odigra kartu, dobija tačkicu. Pobednik runde (ko prvi isprazni ruku) dobija -8 poena. Ostali igrači dobijaju zbir svojih tačkica i preostalih karata u ruci. Ako je sto zatvoreno istom kartom kojom je i otvoreno, svi poeni u toj rundi se duplaju.</p>
+              <p className="text-muted">
+                Igrač koji bira igru određuje početni broj i postavlja prvu kartu tog ranga u jednoj boji. Grade se 4 niza (po jedan za svaku boju) u rastućem cikličnom redosledu od izabranog broja (npr. 9, 10, J, Q, K, A, 7, 8). Igrači naizmenično ili nastavljaju postojeći niz sledećom kartom u toj boji, ili otvaraju novi niz polaganjem početne karte u drugoj boji.
+              </p>
+              <p className="text-muted mt-2">
+                Ako igrač nema kartu koju može da odigra, kaže "dalje" i dobija tačkicu. Pobednik runde je igrač koji prvi ostane bez karata — on dobija -8 poena, a ostali igrači dobijaju zbir svojih tačkica i broja preostalih karata u ruci.
+              </p>
+              <p className="text-muted mt-2">
+                Duplo: ako pobednik odigra poslednju kartu istog ranga kojim je niz otvoren (npr. otvoreno je 9 srce, a poslednja karta pobednika je 9 karo), svi poeni u toj rundi se duplaju.
+              </p>
             </div>
             <div className="bg-surface border border-rim rounded-lg p-3">
               <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Intuicija"]}</div>
-              <p className="text-muted">Cilj je sklopiti tačan broj nizova (ukupno 8 po rundi). Svaki sklopljeni niz nosi -2 poena.</p>
+              <p className="text-muted">
+                Cilj je sakupiti "kvartete" — sve 4 karte istog ranga (npr. 9 herc, karo, tref i pik). Igrač na potezu postavlja drugom igraču pitanja na koja se odgovara samo sa da/ne (npr. "Da li imaš 9?", "Da li je tvoj J crven?", "Da li imaš Q srce?"). Da bi uzeo kartu, mora tačno da pogodi i rang i boju.
+              </p>
+              <p className="text-muted mt-2">
+                Dok dobija potvrdne odgovore, igrač nastavlja da pita — može i drugog igrača, ili promeniti pitanje da zbuni protivnike. Kad sakupi sve 4 karte istog ranga, spušta taj kvartet ispred sebe (-2 poena), i taj rang izlazi iz igre. Runda se završava kad se svih 8 kvarteta sakupi.
+              </p>
             </div>
           </div>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
