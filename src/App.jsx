@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { UI_TEXT, GAME_DISPLAY, PICK_LABELS, GAME_RULES } from "./translations";
 
 const GAMES = [
   "Što više",
@@ -14,19 +15,6 @@ const GAMES = [
   "Intuicija",
 ];
 
-// Prikaz imena igara sa emoji simbolima (interna imena ostaju ista)
-const GAME_DISPLAY = {
-  "Što više": "🔼 Što više",
-  "Što manje": "🔽 Što manje",
-  "Što više srca": "♥️🔼 Više srca",
-  "Što manje srca": "♥️🔽 Manje srca",
-  "Dame": "👸 Dame",
-  "J tref": "♣️J Žandar",
-  "K srce + zadnja": "K♥️+Zadnja",
-  "Tačkice": "⚫ Tačkice",
-  "Intuicija": "🔮 Intuicija",
-};
-
 // Igre kod kojih igrači "nose" karte/ruke do ukupnog zbira (8), a poeni se računaju automatski
 const TRICKS_CONFIG = {
   "Što više": { total: 8, per: -2 },
@@ -38,12 +26,9 @@ const TRICKS_CONFIG = {
 
 // Igre gde se bira igrač(i) koji nose poene
 const PICK_CONFIG = {
-  "J tref": { picks: [{ label: "Ko nosi žandara trefa?", value: 16 }] },
+  "J tref": { picks: [{ value: 16 }] },
   "K srce + zadnja": {
-    picks: [
-      { label: "Ko nosi K srce?", value: 8 },
-      { label: "Ko nosi zadnju ruku?", value: 8 },
-    ],
+    picks: [{ value: 8 }, { value: 8 }],
   },
 };
 
@@ -74,7 +59,7 @@ const FREE_COUNTER_CONFIG = {
   "Intuicija": { per: -2, total: 8 },
 };
 
-const FreeCounter = ({ players, counts, onChange, total }) => {
+const FreeCounter = ({ players, counts, onChange, total, t }) => {
   const sum = counts.reduce((a, b) => a + b, 0);
   return (
     <div className="space-y-3">
@@ -102,7 +87,7 @@ const FreeCounter = ({ players, counts, onChange, total }) => {
       ))}
       {total !== undefined && (
         <div className={`text-center text-sm font-medium ${sum === total ? "text-gold" : "text-muted"}`}>
-          Ukupno: {sum} / {total}
+          {t("counter_total", { sum, total })}
         </div>
       )}
     </div>
@@ -127,7 +112,7 @@ const PlayerPicker = ({ players, label, selected, onSelect }) => (
   </div>
 );
 
-const TrickCounter = ({ players, counts, total, onChange }) => {
+const TrickCounter = ({ players, counts, total, onChange, t }) => {
   const sum = counts.reduce((a, b) => a + b, 0);
   return (
     <div className="space-y-3">
@@ -154,7 +139,7 @@ const TrickCounter = ({ players, counts, total, onChange }) => {
         </div>
       ))}
       <div className={`text-center text-sm font-medium ${sum === total ? "text-gold" : "text-muted"}`}>
-        Ukupno: {sum} / {total}
+        {t("counter_total", { sum, total })}
       </div>
     </div>
   );
@@ -175,7 +160,7 @@ const Totals = ({ players, totals }) => (
   </div>
 );
 
-const History = () => {
+const History = ({ t }) => {
   const [savedGames, setSavedGames] = useState([]);
 
   useEffect(() => {
@@ -183,16 +168,16 @@ const History = () => {
     setSavedGames(JSON.parse(raw));
   }, []);
 
-  if (!savedGames.length) return <div className="text-muted text-sm">Još nema sačuvanih partija.</div>;
+  if (!savedGames.length) return <div className="text-muted text-sm">{t("history_noGames")}</div>;
 
   return (
     <div className="space-y-3">
-      <h3 className="font-semibold text-lg text-gold">Istorija završenih partija</h3>
+      <h3 className="font-semibold text-lg text-gold">{t("history_finishedTitle")}</h3>
       {savedGames.map((game, idx) => (
         <div key={idx} className="p-3 border border-rim rounded-lg bg-surface space-y-1">
           <div className="text-xs text-muted">{new Date(game.finishedAt).toLocaleString()}</div>
           <div className="font-semibold text-white">{game.players.join(" vs ")}</div>
-          <div className="text-muted text-sm">Rezultati: {game.totals.join(" / ")}</div>
+          <div className="text-muted text-sm">{t("history_results")} {game.totals.join(" / ")}</div>
         </div>
       ))}
     </div>
@@ -215,6 +200,17 @@ export default function App() {
   const [screen, setScreen] = useState("home"); // "home" | "setup" | "rules" | "game"
   const [selectedGames, setSelectedGames] = useState([...GAMES]);
   const [profiles, setProfiles] = useState([]);
+  const [language, setLanguage] = useState("sr");
+
+  const t = (key, vars) => {
+    let str = UI_TEXT[language][key] ?? key;
+    if (vars) {
+      Object.entries(vars).forEach(([k, v]) => {
+        str = str.replace(`{${k}}`, v);
+      });
+    }
+    return str;
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("lora-game");
@@ -230,7 +226,13 @@ export default function App() {
     }
     const savedProfiles = localStorage.getItem("lora-profiles");
     if (savedProfiles) setProfiles(JSON.parse(savedProfiles));
+    const savedLanguage = localStorage.getItem("lora-lang");
+    if (savedLanguage) setLanguage(savedLanguage);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("lora-lang", language);
+  }, [language]);
 
   useEffect(() => {
     if (!started) return;
@@ -353,7 +355,7 @@ export default function App() {
               }}
               className="w-full py-3 text-base"
             >
-              Nova partija
+              {t("home_newGame")}
             </Button>
             <Button
               variant="outline"
@@ -361,18 +363,22 @@ export default function App() {
               onClick={() => setScreen("game")}
               className="w-full py-3 text-base"
             >
-              Nastavi partiju
+              {t("home_continueGame")}
             </Button>
             <Button variant="outline" onClick={() => setScreen("rules")} className="w-full py-3 text-base">
-              Pravila
+              {t("home_rules")}
             </Button>
             <Button variant="outline" onClick={() => setShowHistory((s) => !s)} className="w-full py-3 text-base">
-              {showHistory ? "Sakrij istoriju" : "Istorija partija"}
+              {showHistory ? t("home_hideHistory") : t("home_showHistory")}
             </Button>
-            {showHistory && <History />}
+            {showHistory && <History t={t} />}
           </div>
-          <Button variant="outline" disabled className="w-full py-2 text-sm opacity-60">
-            🇷🇸 Srpski (Engleski uskoro)
+          <Button
+            variant="outline"
+            onClick={() => setLanguage((l) => (l === "sr" ? "en" : "sr"))}
+            className="w-full py-2 text-sm"
+          >
+            {language === "sr" ? "🇬🇧 English" : "🇷🇸 Srpski"}
           </Button>
         </div>
       </div>
@@ -383,63 +389,22 @@ export default function App() {
     return (
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-4">
-          <h2 className="text-2xl font-bold text-gold text-center">Pravila</h2>
+          <h2 className="text-2xl font-bold text-gold text-center">{t("rules_title")}</h2>
           <div className="text-sm text-muted space-y-2">
-            <p>Igraju 4 igrača. Pri pokretanju partije bira se koje će se igre igrati (od ukupno 9) — svaki igrač bira po jednom svaku izabranu igru. Na kraju partije pobednik je igrač sa najmanje (najnižim brojem) poena.</p>
+            <p>{t("rules_intro")}</p>
           </div>
           <div className="space-y-3 text-sm">
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što više"]}</div>
-              <p className="text-muted">Cilj je odneti što više ruku (od ukupno 8). Svaka odneta ruka nosi -2 poena.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što manje"]}</div>
-              <p className="text-muted">Cilj je odneti što manje ruku. Svaka odneta ruka nosi +2 poena. Ako igrač ne odnese nijednu ruku, dobija -16 poena.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što više srca"]}</div>
-              <p className="text-muted">Cilj je odneti što više srca (od ukupno 8). Svako odneto srce nosi -2 poena.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Što manje srca"]}</div>
-              <p className="text-muted">Cilj je odneti što manje srca. Svako odneto srce nosi +2 poena.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Dame"]}</div>
-              <p className="text-muted">Svaka odneta dama nosi +4 poena. Ako jedan igrač odnese sve 4 dame, dobija -16 poena.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["J tref"]}</div>
-              <p className="text-muted">Igrač koji nosi žandara trefa dobija +16 poena, ostali 0.</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["K srce + zadnja"]}</div>
-              <p className="text-muted">Igrač koji nosi K srce dobija +8 poena, a igrač koji nosi zadnju ruku dobija +8 poena. Isti igrač može nositi oba (+16).</p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Tačkice"]}</div>
-              <p className="text-muted">
-                Igrač koji bira igru određuje početni broj i postavlja prvu kartu tog ranga u jednoj boji. Grade se 4 niza (po jedan za svaku boju) u rastućem cikličnom redosledu od izabranog broja (npr. 9, 10, J, Q, K, A, 7, 8). Igrači naizmenično ili nastavljaju postojeći niz sledećom kartom u toj boji, ili otvaraju novi niz polaganjem početne karte u drugoj boji.
-              </p>
-              <p className="text-muted mt-2">
-                Ako igrač nema kartu koju može da odigra, kaže "dalje" i dobija tačkicu. Pobednik runde je igrač koji prvi ostane bez karata — on dobija -8 poena, a ostali igrači dobijaju zbir svojih tačkica i broja preostalih karata u ruci.
-              </p>
-              <p className="text-muted mt-2">
-                Duplo: ako pobednik odigra poslednju kartu istog ranga kojim je niz otvoren (npr. otvoreno je 9 srce, a poslednja karta pobednika je 9 karo), svi poeni u toj rundi se duplaju.
-              </p>
-            </div>
-            <div className="bg-surface border border-rim rounded-lg p-3">
-              <div className="font-semibold text-gold mb-1">{GAME_DISPLAY["Intuicija"]}</div>
-              <p className="text-muted">
-                Cilj je sakupiti "kvartete" — sve 4 karte istog ranga (npr. 9 herc, karo, tref i pik). Igrač na potezu postavlja drugom igraču pitanja na koja se odgovara samo sa da/ne (npr. "Da li imaš 9?", "Da li je tvoj J crven?", "Da li imaš Q srce?"). Da bi uzeo kartu, mora tačno da pogodi i rang i boju.
-              </p>
-              <p className="text-muted mt-2">
-                Dok dobija potvrdne odgovore, igrač nastavlja da pita — može i drugog igrača, ili promeniti pitanje da zbuni protivnike. Kad sakupi sve 4 karte istog ranga, spušta taj kvartet ispred sebe (-2 poena), i taj rang izlazi iz igre. Runda se završava kad se svih 8 kvarteta sakupi.
-              </p>
-            </div>
+            {GAMES.map((g) => (
+              <div key={g} className="bg-surface border border-rim rounded-lg p-3">
+                <div className="font-semibold text-gold mb-1">{GAME_DISPLAY[language][g]}</div>
+                {GAME_RULES[language][g].map((p, idx) => (
+                  <p key={idx} className={`text-muted ${idx > 0 ? "mt-2" : ""}`}>{p}</p>
+                ))}
+              </div>
+            ))}
           </div>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
-            Nazad
+            {t("rules_back")}
           </Button>
         </div>
       </div>
@@ -451,20 +416,20 @@ export default function App() {
       <div className="min-h-screen bg-felt text-white flex flex-col">
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5">
           <h1 className="text-3xl font-bold text-gold text-center tracking-wide">🃏 Lora</h1>
-          <h2 className="text-base font-semibold text-center text-muted">Unesi imena igrača</h2>
+          <h2 className="text-base font-semibold text-center text-muted">{t("setup_enterNames")}</h2>
           <div className="space-y-3">
             {players.map((p, idx) => (
               <Input
                 key={idx}
                 value={p}
                 onChange={(e) => handleNameChange(idx, e.target.value)}
-                placeholder={`Igrač ${idx + 1}`}
+                placeholder={t("setup_playerPlaceholder", { n: idx + 1 })}
               />
             ))}
           </div>
           {profiles.length > 0 && (
             <div className="space-y-2">
-              <h2 className="text-base font-semibold text-center text-muted">Sačuvani igrači</h2>
+              <h2 className="text-base font-semibold text-center text-muted">{t("setup_savedPlayers")}</h2>
               <div className="flex flex-wrap gap-2 justify-center">
                 {profiles.map((name) => (
                   <div key={name} className="flex items-center gap-1 bg-surface border border-rim rounded-lg pl-3 pr-1 py-1">
@@ -483,10 +448,10 @@ export default function App() {
             </div>
           )}
           <Button disabled={!allNamesEntered} onClick={() => setScreen("setup-games")} className="w-full py-3 text-base">
-            Dalje
+            {t("setup_next")}
           </Button>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full">
-            Nazad
+            {t("setup_back")}
           </Button>
         </div>
       </div>
@@ -500,7 +465,7 @@ export default function App() {
           <h1 className="text-3xl font-bold text-gold text-center tracking-wide">🃏 Lora</h1>
           <div className="space-y-2">
             <h2 className="text-base font-semibold text-center text-muted">
-              Izaberi igre ({selectedGames.length}/{GAMES.length})
+              {t("setupGames_chooseGames", { n: selectedGames.length, total: GAMES.length })}
             </h2>
             <div className="space-y-2">
               {GAMES.map((g) => (
@@ -514,19 +479,19 @@ export default function App() {
                     onChange={() => toggleGame(g)}
                     className="w-4 h-4 accent-gold"
                   />
-                  <span className="font-medium">{GAME_DISPLAY[g] ?? g}</span>
+                  <span className="font-medium">{GAME_DISPLAY[language][g] ?? g}</span>
                 </label>
               ))}
             </div>
             <div className="text-center text-muted text-sm">
-              Ukupno rundi: {totalRounds}
+              {t("setupGames_totalRounds", { n: totalRounds })}
             </div>
           </div>
           <Button disabled={!allNamesEntered || selectedGames.length === 0} onClick={startGame} className="w-full py-3 text-base">
-            Započni partiju
+            {t("setupGames_start")}
           </Button>
           <Button variant="outline" onClick={() => setScreen("setup")} className="w-full">
-            Nazad
+            {t("setup_back")}
           </Button>
         </div>
       </div>
@@ -561,13 +526,13 @@ export default function App() {
 
   const RoundHistory = () => (
     <div className="overflow-x-auto mt-4">
-      <h3 className="font-semibold mb-2 text-gold text-sm">Istorija partije</h3>
+      <h3 className="font-semibold mb-2 text-gold text-sm">{t("history_title")}</h3>
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="text-muted">
             <th className="border border-rim p-1 text-left">#</th>
-            <th className="border border-rim p-1 text-left">Igrač</th>
-            <th className="border border-rim p-1 text-left">Igra</th>
+            <th className="border border-rim p-1 text-left">{t("history_player")}</th>
+            <th className="border border-rim p-1 text-left">{t("history_game")}</th>
             {players.map((p, idx) => (
               <th key={idx} className="border border-rim p-1 text-center">{p}</th>
             ))}
@@ -578,7 +543,7 @@ export default function App() {
             <tr key={i} className={i % 2 === 0 ? "bg-surface" : ""}>
               <td className="border border-rim p-1 text-center text-muted">{i + 1}</td>
               <td className="border border-rim p-1">{players[r.round % 4]}</td>
-              <td className="border border-rim p-1">{GAME_DISPLAY[r.game] ?? r.game}</td>
+              <td className="border border-rim p-1">{GAME_DISPLAY[language][r.game] ?? r.game}</td>
               {r.scores.map((s, j) => (
                 <td key={j} className="border border-rim p-1 text-center">{s}</td>
               ))}
@@ -594,11 +559,11 @@ export default function App() {
     return (
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5 text-center">
-          <h2 className="text-2xl font-bold text-gold">Partija završena! 🏆</h2>
+          <h2 className="text-2xl font-bold text-gold">{t("game_finished")}</h2>
           <Totals players={players} totals={totals} />
           <RoundHistory />
-          <Button variant="outline" onClick={resetGame} className="w-full py-3">Nova partija</Button>
-          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">Nazad u meni</Button>
+          <Button variant="outline" onClick={resetGame} className="w-full py-3">{t("game_newGame")}</Button>
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">{t("game_backToMenu").replace("← ", "")}</Button>
         </div>
       </div>
     );
@@ -611,13 +576,13 @@ export default function App() {
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
-            ← Nazad u meni
+            {t("game_backToMenu")}
           </Button>
           <Totals players={players} totals={totals} />
           <div className="text-center">
-            <div className="text-muted text-sm">Runda {round + 1} / {totalRounds}</div>
+            <div className="text-muted text-sm">{t("game_roundOf", { n: round + 1, total: totalRounds })}</div>
             <div className="text-lg font-bold">
-              Bira: <span className="text-gold">{pickerName}</span>
+              {t("game_picks")} <span className="text-gold">{pickerName}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -631,15 +596,15 @@ export default function App() {
                   onClick={() => !disabled && chooseGame(g)}
                   className="w-full py-3"
                 >
-                  {GAME_DISPLAY[g] ?? g}
+                  {GAME_DISPLAY[language][g] ?? g}
                 </Button>
               );
             })}
           </div>
           <RoundHistory />
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={undoLastRound} className="flex-1">Poništi rundu</Button>
-            <Button variant="destructive" onClick={resetGame} className="flex-1">Resetuj</Button>
+            <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
+            <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
           </div>
         </div>
       </div>
@@ -715,28 +680,28 @@ export default function App() {
     <div className="min-h-screen bg-felt text-white">
       <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
         <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
-          ← Nazad u meni
+          {t("game_backToMenu")}
         </Button>
         <Totals players={players} totals={totals} />
         <div className="text-center">
-          <div className="text-muted text-sm">Runda {round + 1}</div>
-          <div className="text-lg font-bold text-gold">{GAME_DISPLAY[selectedGame] ?? selectedGame}</div>
+          <div className="text-muted text-sm">{t("game_round", { n: round + 1 })}</div>
+          <div className="text-lg font-bold text-gold">{GAME_DISPLAY[language][selectedGame] ?? selectedGame}</div>
         </div>
         {selectedGame === "Tačkice" ? (
           <>
             <div className="space-y-2">
-              <div className="text-sm text-muted text-center">Tačkice (svaki put kad igrač ne može da odigra)</div>
-              <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} />
+              <div className="text-sm text-muted text-center">{t("tackice_label")}</div>
+              <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} t={t} />
             </div>
             <PlayerPicker
               players={players}
-              label="Ko je ispraznio ruku (pobednik runde)?"
+              label={t("tackice_winner")}
               selected={roundWinner}
               onSelect={setRoundWinner}
             />
             {roundWinner !== null && (
               <div className="space-y-2">
-                <div className="text-sm text-muted text-center">Preostale karte u ruci</div>
+                <div className="text-sm text-muted text-center">{t("tackice_remaining")}</div>
                 {players.map((player, idx) =>
                   idx === roundWinner ? null : (
                     <CounterRow
@@ -754,7 +719,7 @@ export default function App() {
                     onChange={(e) => setRoundDouble(e.target.checked)}
                     className="w-4 h-4 accent-gold"
                   />
-                  Zatvoreno istom kartom kojom je otvoreno (duplo)
+                  {t("tackice_double")}
                 </label>
               </div>
             )}
@@ -763,29 +728,29 @@ export default function App() {
               onClick={() => submitScores(tackiceScores)}
               className="w-full py-3 text-base"
             >
-              Završi rundu
+              {t("game_finishRound")}
             </Button>
           </>
         ) : tricksConfig ? (
           <>
-            <TrickCounter players={players} counts={roundCounts} total={tricksConfig.total} onChange={adjustCount} />
+            <TrickCounter players={players} counts={roundCounts} total={tricksConfig.total} onChange={adjustCount} t={t} />
             <Button
               disabled={tricksSum !== tricksConfig.total}
               onClick={() => submitScores(tricksScores)}
               className="w-full py-3 text-base"
             >
-              Završi rundu
+              {t("game_finishRound")}
             </Button>
           </>
         ) : freeCounterConfig ? (
           <>
-            <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} total={freeCounterConfig.total} />
+            <FreeCounter players={players} counts={roundCounts} onChange={adjustFreeCount} total={freeCounterConfig.total} t={t} />
             <Button
               disabled={freeCounterConfig.total !== undefined && freeCounterSum !== freeCounterConfig.total}
               onClick={() => submitScores(freeCounterScores)}
               className="w-full py-3 text-base"
             >
-              Završi rundu
+              {t("game_finishRound")}
             </Button>
           </>
         ) : pickConfig ? (
@@ -795,7 +760,7 @@ export default function App() {
                 <PlayerPicker
                   key={pickIdx}
                   players={players}
-                  label={pick.label}
+                  label={PICK_LABELS[language][selectedGame][pickIdx]}
                   selected={roundPicks[pickIdx]}
                   onSelect={(playerIdx) => setPick(pickIdx, playerIdx)}
                 />
@@ -806,13 +771,13 @@ export default function App() {
               onClick={() => submitScores(pickScores)}
               className="w-full py-3 text-base"
             >
-              Završi rundu
+              {t("game_finishRound")}
             </Button>
           </>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={undoLastRound} className="flex-1">Poništi rundu</Button>
-          <Button variant="destructive" onClick={resetGame} className="flex-1">Resetuj</Button>
+          <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
+          <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
         </div>
         <RoundHistory />
       </div>
