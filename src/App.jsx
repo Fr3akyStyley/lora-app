@@ -2,9 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { UI_TEXT, GAME_DISPLAY, PICK_LABELS, GAME_RULES } from "./translations";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "./firebase";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
 const GAMES = [
   "Što više",
@@ -411,9 +413,25 @@ export default function App() {
     return unsub;
   }, []);
 
-  const login = () => signInWithPopup(auth, googleProvider).catch((e) => console.error(e));
-  const logout = () => {
-    signOut(auth);
+  const login = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        const credential = GoogleAuthProvider.credential(result.credential?.idToken);
+        await signInWithCredential(auth, credential);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const logout = async () => {
+    if (Capacitor.isNativePlatform()) {
+      await FirebaseAuthentication.signOut();
+    }
+    await signOut(auth);
     setCustomName("");
     setEditingName(false);
     setPremium(false);

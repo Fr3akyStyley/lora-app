@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "336198548491",
+    "project_id": "lora-score",
+    "storage_bucket": "lora-score.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:336198548491:android:0f549fb2e2bb76a5a05b0e",
+        "android_client_info": {
+          "package_name": "com.lorascore.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "336198548491-qqkgmiek3ttfg0povoscdgmakve06hr0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRWbT9TnKFEfK7HRgqe1ft4qZ6Bocbor4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "336198548491-qqkgmiek3ttfg0povoscdgmakve06hr0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

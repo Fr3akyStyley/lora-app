@@ -1,0 +1,11 @@
+{
+  "appId": "com.lorascore.app",
+  "appName": "Lora Score",
+  "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
+}
