@@ -165,6 +165,9 @@ const Totals = ({ players, totals }) => (
 
 const PLAYER_COLORS = ["#c9a84c", "#5cb8e4", "#e4705c", "#a78bfa"];
 
+const HISTORY_LIMIT_FREE = 10;
+const HISTORY_LIMIT_PREMIUM = 200;
+
 const Podium = ({ players, totals, t }) => {
   const ranked = players
     .map((name, idx) => ({ name, total: totals[idx], idx }))
@@ -344,6 +347,7 @@ export default function App() {
   const [customName, setCustomName] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [premium, setPremium] = useState(false);
 
   const t = (key, vars) => {
     let str = UI_TEXT[language][key] ?? key;
@@ -387,13 +391,16 @@ export default function App() {
       const localHistory = JSON.parse(localStorage.getItem("lora-history") || "[]");
       if (snap.exists()) {
         const cloud = snap.data();
+        const isPremium = cloud.premium || false;
+        const historyLimit = isPremium ? HISTORY_LIMIT_PREMIUM : HISTORY_LIMIT_FREE;
         const mergedProfiles = Array.from(new Set([...(cloud.profiles || []), ...localProfiles]));
         const mergedHistory = [...localHistory, ...(cloud.history || [])]
           .sort((a, b) => b.finishedAt - a.finishedAt)
           .filter((g, idx, arr) => arr.findIndex((x) => x.finishedAt === g.finishedAt) === idx)
-          .slice(0, 20);
+          .slice(0, historyLimit);
         setProfiles(mergedProfiles);
         setCustomName(cloud.displayName || "");
+        setPremium(isPremium);
         localStorage.setItem("lora-profiles", JSON.stringify(mergedProfiles));
         localStorage.setItem("lora-history", JSON.stringify(mergedHistory));
         await setDoc(ref, { profiles: mergedProfiles, history: mergedHistory }, { merge: true });
@@ -409,6 +416,7 @@ export default function App() {
     signOut(auth);
     setCustomName("");
     setEditingName(false);
+    setPremium(false);
   };
 
   const syncCloud = (newProfiles, newHistory) => {
@@ -528,11 +536,11 @@ export default function App() {
       const saved = localStorage.getItem("lora-history") || "[]";
       const parsed = JSON.parse(saved);
       parsed.unshift({ players, results, totals, finishedAt: Date.now() });
-      const trimmed = parsed.slice(0, 20);
+      const trimmed = parsed.slice(0, premium ? HISTORY_LIMIT_PREMIUM : HISTORY_LIMIT_FREE);
       localStorage.setItem("lora-history", JSON.stringify(trimmed));
       syncCloud(profiles, trimmed);
     }
-  }, [round, totalRounds]);
+  }, [round, totalRounds, premium]);
 
   if (screen === "home") {
     return (
@@ -562,6 +570,9 @@ export default function App() {
             </Button>
             <Button variant="outline" onClick={() => setScreen("history")} className="w-full py-3 text-base">
               {t("home_showHistory")}
+            </Button>
+            <Button variant="outline" onClick={() => setScreen("premium")} className="w-full py-3 text-base">
+              {t("home_premium")}
             </Button>
           </div>
           {user ? (
@@ -656,6 +667,34 @@ export default function App() {
           </div>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
             {t("rules_back")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "premium") {
+    return (
+      <div className="min-h-screen bg-felt text-white">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-4">
+          <h2 className="text-2xl font-bold text-gold text-center">{t("premium_title")}</h2>
+          <div className="bg-surface border border-rim rounded-lg p-3 text-sm text-muted text-center">
+            {premium ? t("premium_status_active") : t("premium_status_inactive")}
+          </div>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted">{t("premium_intro")}</p>
+            <ul className="space-y-1 list-disc list-inside text-muted">
+              <li>{t("premium_feature_history", { limit: HISTORY_LIMIT_FREE })}</li>
+              <li>{t("premium_feature_ads")}</li>
+            </ul>
+          </div>
+          {!premium && (
+            <div className="bg-surface border border-rim rounded-lg p-3 text-sm text-muted text-center">
+              {user ? t("premium_comingSoon") : t("premium_loginRequired")}
+            </div>
+          )}
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
+            {t("premium_back")}
           </Button>
         </div>
       </div>
