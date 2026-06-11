@@ -41,6 +41,9 @@ export const UI_TEXT = {
 
     counter_total: "Ukupno: {sum} / {total}",
 
+    chart_title: "Tok partije",
+    podium_fourth: "🍀 Više sreće drugi put, {name}",
+
     tackice_label: "Tačkice (svaki put kad igrač ne može da odigra)",
     tackice_winner: "Ko je ispraznio ruku (pobednik runde)?",
     tackice_remaining: "Preostale karte u ruci",
@@ -85,6 +88,9 @@ export const UI_TEXT = {
     history_results: "Results:",
 
     counter_total: "Total: {sum} / {total}",
+
+    chart_title: "Game progress",
+    podium_fourth: "🍀 Better luck next time, {name}",
 
     tackice_label: "Dots (every time a player can't play a card)",
     tackice_winner: "Who emptied their hand (round winner)?",

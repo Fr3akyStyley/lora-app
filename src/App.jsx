@@ -160,6 +160,91 @@ const Totals = ({ players, totals }) => (
   </div>
 );
 
+const PLAYER_COLORS = ["#c9a84c", "#5cb8e4", "#e4705c", "#a78bfa"];
+
+const Podium = ({ players, totals, t }) => {
+  const ranked = players
+    .map((name, idx) => ({ name, total: totals[idx], idx }))
+    .sort((a, b) => a.total - b.total);
+  const [first, second, third, fourth] = ranked;
+  const slots = [
+    { player: second, medal: "🥈", height: "h-20" },
+    { player: first, medal: "🥇", height: "h-28" },
+    { player: third, medal: "🥉", height: "h-14" },
+  ];
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end justify-center gap-2">
+        {slots.map((slot, i) => (
+          <div key={i} className="flex flex-col items-center w-1/3">
+            <div className="text-sm font-semibold truncate max-w-full">{slot.player?.name}</div>
+            <div className="text-gold font-bold mb-1">{slot.player?.total ?? 0}</div>
+            <div className={`w-full ${slot.height} bg-surface border border-rim rounded-t-lg flex items-center justify-center text-2xl`}>
+              {slot.medal}
+            </div>
+          </div>
+        ))}
+      </div>
+      {fourth && (
+        <div className="text-center text-sm text-muted">
+          {t("podium_fourth", { name: fourth.name })} ({fourth.total})
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ScoreChart = ({ players, results, t }) => {
+  const width = 300;
+  const height = 160;
+  const padding = { top: 10, right: 10, bottom: 8, left: 28 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const cumulative = players.map(() => [0]);
+  results.forEach((r) => {
+    players.forEach((_, idx) => {
+      const prev = cumulative[idx][cumulative[idx].length - 1];
+      cumulative[idx].push(prev + (Number(r.scores[idx]) || 0));
+    });
+  });
+
+  const allValues = cumulative.flat();
+  const minVal = Math.min(0, ...allValues);
+  const maxVal = Math.max(0, ...allValues);
+  const range = maxVal - minVal || 1;
+  const roundsCount = cumulative[0].length - 1;
+
+  const xFor = (i) => padding.left + (i / roundsCount) * chartW;
+  const yFor = (v) => padding.top + chartH - ((v - minVal) / range) * chartH;
+
+  return (
+    <div className="bg-panel border border-rim rounded-xl p-3">
+      <h3 className="font-semibold text-gold text-sm mb-2 text-center">{t("chart_title")}</h3>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
+        <line x1={padding.left} y1={yFor(0)} x2={width - padding.right} y2={yFor(0)} stroke="#2d5a3d" strokeWidth="1" />
+        {cumulative.map((series, idx) => (
+          <polyline
+            key={idx}
+            fill="none"
+            stroke={PLAYER_COLORS[idx]}
+            strokeWidth="2"
+            points={series.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ")}
+          />
+        ))}
+      </svg>
+      <div className="flex flex-wrap gap-3 justify-center mt-2 text-xs">
+        {players.map((p, idx) => (
+          <div key={idx} className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: PLAYER_COLORS[idx] }} />
+            <span className="truncate max-w-[70px]">{p}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const History = ({ t }) => {
   const [savedGames, setSavedGames] = useState([]);
 
@@ -560,7 +645,8 @@ export default function App() {
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5 text-center">
           <h2 className="text-2xl font-bold text-gold">{t("game_finished")}</h2>
-          <Totals players={players} totals={totals} />
+          <Podium players={players} totals={totals} t={t} />
+          <ScoreChart players={players} results={results} t={t} />
           <RoundHistory />
           <Button variant="outline" onClick={resetGame} className="w-full py-3">{t("game_newGame")}</Button>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">{t("game_backToMenu").replace("← ", "")}</Button>
