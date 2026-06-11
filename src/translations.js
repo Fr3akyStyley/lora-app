@@ -38,6 +38,8 @@ export const UI_TEXT = {
     history_player: "Igrač",
     history_game: "Igra",
     history_results: "Rezultati:",
+    history_showDetails: "Prikaži detalje",
+    history_hideDetails: "Sakrij detalje",
 
     counter_total: "Ukupno: {sum} / {total}",
 
@@ -86,6 +88,8 @@ export const UI_TEXT = {
     history_player: "Player",
     history_game: "Game",
     history_results: "Results:",
+    history_showDetails: "Show details",
+    history_hideDetails: "Hide details",
 
     counter_total: "Total: {sum} / {total}",
 

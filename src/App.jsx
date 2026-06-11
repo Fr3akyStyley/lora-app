@@ -245,8 +245,39 @@ const ScoreChart = ({ players, results, t }) => {
   );
 };
 
-const History = ({ t }) => {
+const RoundTable = ({ players, results, language, t }) => (
+  <div className="overflow-x-auto mt-4">
+    <h3 className="font-semibold mb-2 text-gold text-sm">{t("history_title")}</h3>
+    <table className="w-full border-collapse text-xs">
+      <thead>
+        <tr className="text-muted">
+          <th className="border border-rim p-1 text-left">#</th>
+          <th className="border border-rim p-1 text-left">{t("history_player")}</th>
+          <th className="border border-rim p-1 text-left">{t("history_game")}</th>
+          {players.map((p, idx) => (
+            <th key={idx} className="border border-rim p-1 text-center">{p}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {results.map((r, i) => (
+          <tr key={i} className={i % 2 === 0 ? "bg-surface" : ""}>
+            <td className="border border-rim p-1 text-center text-muted">{i + 1}</td>
+            <td className="border border-rim p-1">{players[r.round % 4]}</td>
+            <td className="border border-rim p-1">{GAME_DISPLAY[language][r.game] ?? r.game}</td>
+            {r.scores.map((s, j) => (
+              <td key={j} className="border border-rim p-1 text-center">{s}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const History = ({ t, language }) => {
   const [savedGames, setSavedGames] = useState([]);
+  const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     const raw = localStorage.getItem("lora-history") || "[]";
@@ -257,14 +288,35 @@ const History = ({ t }) => {
 
   return (
     <div className="space-y-3">
-      <h3 className="font-semibold text-lg text-gold">{t("history_finishedTitle")}</h3>
-      {savedGames.map((game, idx) => (
-        <div key={idx} className="p-3 border border-rim rounded-lg bg-surface space-y-1">
-          <div className="text-xs text-muted">{new Date(game.finishedAt).toLocaleString()}</div>
-          <div className="font-semibold text-white">{game.players.join(" vs ")}</div>
-          <div className="text-muted text-sm">{t("history_results")} {game.totals.join(" / ")}</div>
-        </div>
-      ))}
+      {savedGames.map((game, idx) => {
+        const winnerIdx = game.totals.indexOf(Math.min(...game.totals));
+        const isExpanded = expanded === idx;
+        return (
+          <div key={idx} className="p-3 border border-rim rounded-lg bg-surface space-y-2">
+            <div className="text-xs text-muted">{new Date(game.finishedAt).toLocaleDateString()}</div>
+            <div className="space-y-1">
+              {game.players.map((p, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className={i === winnerIdx ? "font-semibold text-gold" : ""}>
+                    {i === winnerIdx ? "🏆 " : ""}{p}
+                  </span>
+                  <span className={i === winnerIdx ? "font-semibold text-gold" : "text-muted"}>{game.totals[i]}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setExpanded(isExpanded ? null : idx)} className="text-xs text-gold underline">
+              {isExpanded ? t("history_hideDetails") : t("history_showDetails")}
+            </button>
+            {isExpanded && (
+              <div className="space-y-3 pt-1">
+                <Podium players={game.players} totals={game.totals} t={t} />
+                <ScoreChart players={game.players} results={game.results} t={t} />
+                <RoundTable players={game.players} results={game.results} language={language} t={t} />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -281,7 +333,6 @@ export default function App() {
   const [roundWinner, setRoundWinner] = useState(null);
   const [roundRemaining, setRoundRemaining] = useState([0, 0, 0, 0]);
   const [roundDouble, setRoundDouble] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [screen, setScreen] = useState("home"); // "home" | "setup" | "rules" | "game"
   const [selectedGames, setSelectedGames] = useState([...GAMES]);
   const [profiles, setProfiles] = useState([]);
@@ -435,7 +486,6 @@ export default function App() {
             <Button
               onClick={() => {
                 setPlayers(["", "", "", ""]);
-                setShowHistory(false);
                 setScreen("setup");
               }}
               className="w-full py-3 text-base"
@@ -453,10 +503,9 @@ export default function App() {
             <Button variant="outline" onClick={() => setScreen("rules")} className="w-full py-3 text-base">
               {t("home_rules")}
             </Button>
-            <Button variant="outline" onClick={() => setShowHistory((s) => !s)} className="w-full py-3 text-base">
-              {showHistory ? t("home_hideHistory") : t("home_showHistory")}
+            <Button variant="outline" onClick={() => setScreen("history")} className="w-full py-3 text-base">
+              {t("home_showHistory")}
             </Button>
-            {showHistory && <History t={t} />}
           </div>
           <Button
             variant="outline"
@@ -464,6 +513,20 @@ export default function App() {
             className="w-full py-2 text-sm"
           >
             {language === "sr" ? "🇬🇧 English" : "🇷🇸 Srpski"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "history") {
+    return (
+      <div className="min-h-screen bg-felt text-white">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-4">
+          <h2 className="text-2xl font-bold text-gold text-center">{t("history_finishedTitle")}</h2>
+          <History t={t} language={language} />
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3 text-base">
+            {t("rules_back")}
           </Button>
         </div>
       </div>
@@ -609,36 +672,6 @@ export default function App() {
     setRoundDouble(false);
   };
 
-  const RoundHistory = () => (
-    <div className="overflow-x-auto mt-4">
-      <h3 className="font-semibold mb-2 text-gold text-sm">{t("history_title")}</h3>
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr className="text-muted">
-            <th className="border border-rim p-1 text-left">#</th>
-            <th className="border border-rim p-1 text-left">{t("history_player")}</th>
-            <th className="border border-rim p-1 text-left">{t("history_game")}</th>
-            {players.map((p, idx) => (
-              <th key={idx} className="border border-rim p-1 text-center">{p}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {results.map((r, i) => (
-            <tr key={i} className={i % 2 === 0 ? "bg-surface" : ""}>
-              <td className="border border-rim p-1 text-center text-muted">{i + 1}</td>
-              <td className="border border-rim p-1">{players[r.round % 4]}</td>
-              <td className="border border-rim p-1">{GAME_DISPLAY[language][r.game] ?? r.game}</td>
-              {r.scores.map((s, j) => (
-                <td key={j} className="border border-rim p-1 text-center">{s}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-
   const finished = round >= totalRounds;
   if (finished) {
     return (
@@ -647,7 +680,7 @@ export default function App() {
           <h2 className="text-2xl font-bold text-gold">{t("game_finished")}</h2>
           <Podium players={players} totals={totals} t={t} />
           <ScoreChart players={players} results={results} t={t} />
-          <RoundHistory />
+          <RoundTable players={players} results={results} language={language} t={t} />
           <Button variant="outline" onClick={resetGame} className="w-full py-3">{t("game_newGame")}</Button>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">{t("game_backToMenu").replace("← ", "")}</Button>
         </div>
@@ -687,7 +720,7 @@ export default function App() {
               );
             })}
           </div>
-          <RoundHistory />
+          <RoundTable players={players} results={results} language={language} t={t} />
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
             <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
@@ -865,7 +898,7 @@ export default function App() {
           <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
           <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
         </div>
-        <RoundHistory />
+        <RoundTable players={players} results={results} language={language} t={t} />
       </div>
     </div>
   );
