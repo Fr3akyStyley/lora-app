@@ -2,6 +2,9 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { UI_TEXT, GAME_DISPLAY, PICK_LABELS, GAME_RULES } from "./translations";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, googleProvider, db } from "./firebase";
 
 const GAMES = [
   "Što više",
@@ -337,6 +340,10 @@ export default function App() {
   const [selectedGames, setSelectedGames] = useState([...GAMES]);
   const [profiles, setProfiles] = useState([]);
   const [language, setLanguage] = useState("sr");
+  const [user, setUser] = useState(null);
+  const [customName, setCustomName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   const t = (key, vars) => {
     let str = UI_TEXT[language][key] ?? key;
@@ -369,6 +376,52 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("lora-lang", language);
   }, [language]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (!u) return;
+      const ref = doc(db, "users", u.uid);
+      const snap = await getDoc(ref);
+      const localProfiles = JSON.parse(localStorage.getItem("lora-profiles") || "[]");
+      const localHistory = JSON.parse(localStorage.getItem("lora-history") || "[]");
+      if (snap.exists()) {
+        const cloud = snap.data();
+        const mergedProfiles = Array.from(new Set([...(cloud.profiles || []), ...localProfiles]));
+        const mergedHistory = [...localHistory, ...(cloud.history || [])]
+          .sort((a, b) => b.finishedAt - a.finishedAt)
+          .filter((g, idx, arr) => arr.findIndex((x) => x.finishedAt === g.finishedAt) === idx)
+          .slice(0, 20);
+        setProfiles(mergedProfiles);
+        setCustomName(cloud.displayName || "");
+        localStorage.setItem("lora-profiles", JSON.stringify(mergedProfiles));
+        localStorage.setItem("lora-history", JSON.stringify(mergedHistory));
+        await setDoc(ref, { profiles: mergedProfiles, history: mergedHistory }, { merge: true });
+      } else {
+        await setDoc(ref, { profiles: localProfiles, history: localHistory }, { merge: true });
+      }
+    });
+    return unsub;
+  }, []);
+
+  const login = () => signInWithPopup(auth, googleProvider).catch((e) => console.error(e));
+  const logout = () => {
+    signOut(auth);
+    setCustomName("");
+    setEditingName(false);
+  };
+
+  const syncCloud = (newProfiles, newHistory) => {
+    if (!user) return;
+    setDoc(doc(db, "users", user.uid), { profiles: newProfiles, history: newHistory }, { merge: true }).catch((e) => console.error(e));
+  };
+
+  const saveDisplayName = (name) => {
+    setCustomName(name);
+    if (user) {
+      setDoc(doc(db, "users", user.uid), { displayName: name }, { merge: true }).catch((e) => console.error(e));
+    }
+  };
 
   useEffect(() => {
     if (!started) return;
@@ -431,6 +484,7 @@ export default function App() {
     const updated = profiles.filter((p) => p !== name);
     setProfiles(updated);
     localStorage.setItem("lora-profiles", JSON.stringify(updated));
+    syncCloud(updated, JSON.parse(localStorage.getItem("lora-history") || "[]"));
   };
 
   const toggleGame = (g) => {
@@ -448,6 +502,7 @@ export default function App() {
       });
       setProfiles(updatedProfiles);
       localStorage.setItem("lora-profiles", JSON.stringify(updatedProfiles));
+      syncCloud(updatedProfiles, JSON.parse(localStorage.getItem("lora-history") || "[]"));
       setPlayedGames(players.map(() => new Set()));
       setRound(0);
       setStarted(true);
@@ -473,7 +528,9 @@ export default function App() {
       const saved = localStorage.getItem("lora-history") || "[]";
       const parsed = JSON.parse(saved);
       parsed.unshift({ players, results, totals, finishedAt: Date.now() });
-      localStorage.setItem("lora-history", JSON.stringify(parsed.slice(0, 20)));
+      const trimmed = parsed.slice(0, 20);
+      localStorage.setItem("lora-history", JSON.stringify(trimmed));
+      syncCloud(profiles, trimmed);
     }
   }, [round, totalRounds]);
 
@@ -507,6 +564,52 @@ export default function App() {
               {t("home_showHistory")}
             </Button>
           </div>
+          {user ? (
+            <div className="space-y-2">
+              {editingName ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder={t("login_namePlaceholder")}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => {
+                      saveDisplayName(nameInput.trim());
+                      setEditingName(false);
+                    }}
+                    className="px-3"
+                  >
+                    {t("login_save")}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-center text-xs text-muted truncate">
+                  <span className="truncate">
+                    {t("login_signedInAs", { name: customName || user.displayName || user.email })}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setNameInput(customName || user.displayName || "");
+                      setEditingName(true);
+                    }}
+                    className="shrink-0 text-gold-light"
+                    aria-label={t("login_namePlaceholder")}
+                  >
+                    ✎
+                  </button>
+                </div>
+              )}
+              <Button variant="outline" onClick={logout} className="w-full py-2 text-sm">
+                {t("login_signOut")}
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={login} className="w-full py-2 text-sm">
+              {t("login_signIn")}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setLanguage((l) => (l === "sr" ? "en" : "sr"))}

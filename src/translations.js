@@ -46,6 +46,12 @@ export const UI_TEXT = {
     chart_title: "Tok partije",
     podium_fourth: "🍀 Više sreće drugi put, {name}",
 
+    login_signIn: "Prijavi se sa Google nalogom",
+    login_signOut: "Odjavi se",
+    login_signedInAs: "Ulogovan kao {name}",
+    login_namePlaceholder: "Tvoje ime",
+    login_save: "Sačuvaj",
+
     tackice_label: "Tačkice (svaki put kad igrač ne može da odigra)",
     tackice_winner: "Ko je ispraznio ruku (pobednik runde)?",
     tackice_remaining: "Preostale karte u ruci",
@@ -95,6 +101,12 @@ export const UI_TEXT = {
 
     chart_title: "Game progress",
     podium_fourth: "🍀 Better luck next time, {name}",
+
+    login_signIn: "Sign in with Google",
+    login_signOut: "Sign out",
+    login_signedInAs: "Signed in as {name}",
+    login_namePlaceholder: "Your name",
+    login_save: "Save",
 
     tackice_label: "Dots (every time a player can't play a card)",
     tackice_winner: "Who emptied their hand (round winner)?",
