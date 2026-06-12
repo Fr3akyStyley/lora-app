@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "./firebase";
 import { Capacitor } from "@capacitor/core";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
+import { App as CapacitorApp } from "@capacitor/app";
 
 const GAMES = [
   "Što više",
@@ -382,6 +383,22 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("lora-lang", language);
   }, [language]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listenerPromise = CapacitorApp.addListener("backButton", () => {
+      if (screen === "setup-games") {
+        setScreen("setup");
+      } else if (screen === "home") {
+        CapacitorApp.exitApp();
+      } else {
+        setScreen("home");
+      }
+    });
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
+  }, [screen]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
