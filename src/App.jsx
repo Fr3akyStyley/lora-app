@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { UI_TEXT, GAME_DISPLAY, PICK_LABELS, GAME_RULES } from "./translations";
@@ -331,6 +331,7 @@ const History = ({ t, language }) => {
 };
 
 export default function App() {
+  const savedToHistoryRef = useRef(false);
   const [players, setPlayers] = useState(["", "", "", ""]);
   const [started, setStarted] = useState(false);
   const [playedGames, setPlayedGames] = useState([]);
@@ -481,6 +482,7 @@ export default function App() {
   }, [players, started, playedGames, round, selectedGame, results, selectedGames]);
 
   const resetGame = () => {
+    savedToHistoryRef.current = false;
     setPlayers(["", "", "", ""]);
     setStarted(false);
     setPlayedGames([]);
@@ -550,6 +552,7 @@ export default function App() {
       setRound(0);
       setStarted(true);
       setResults([]);
+      savedToHistoryRef.current = false;
       setScreen("game");
     }
   };
@@ -567,7 +570,8 @@ export default function App() {
   }, [results]);
 
   useEffect(() => {
-    if (round === totalRounds) {
+    if (round === totalRounds && !savedToHistoryRef.current) {
+      savedToHistoryRef.current = true;
       const saved = localStorage.getItem("lora-history") || "[]";
       const parsed = JSON.parse(saved);
       parsed.unshift({ players, results, totals, finishedAt: Date.now() });
@@ -826,6 +830,18 @@ export default function App() {
   const pickerIndex = round % 4;
   const pickerName = players[pickerIndex];
 
+  const cancelGameSelection = () => {
+    const updated = playedGames.map((set) => new Set(set));
+    updated[pickerIndex].delete(selectedGame);
+    setPlayedGames(updated);
+    setSelectedGame("");
+    setRoundCounts([0, 0, 0, 0]);
+    setRoundPicks([]);
+    setRoundWinner(null);
+    setRoundRemaining([0, 0, 0, 0]);
+    setRoundDouble(false);
+  };
+
   const chooseGame = (game) => {
     const updated = playedGames.map((set) => new Set(set));
     updated[pickerIndex].add(game);
@@ -1072,7 +1088,7 @@ export default function App() {
           </>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
+          <Button variant="outline" onClick={cancelGameSelection} className="flex-1">{t("game_undoRound")}</Button>
           <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
         </div>
         <RoundTable players={players} results={results} language={language} t={t} />
