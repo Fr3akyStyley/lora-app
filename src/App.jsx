@@ -167,6 +167,13 @@ const Totals = ({ players, totals }) => (
 );
 
 const PLAYER_COLORS = ["#c9a84c", "#5cb8e4", "#e4705c", "#a78bfa"];
+const PROFILE_COLORS = ["#c9a84c", "#5cb8e4", "#e4705c", "#a78bfa", "#4caf7d", "#f0a500", "#e91e8c", "#00bcd4", "#ff7043", "#9e9e9e"];
+
+const generateId = () => Math.random().toString(36).slice(2, 9);
+const migrateProfiles = (arr) =>
+  arr.map((p, i) =>
+    typeof p === "string" ? { id: p, name: p, color: PROFILE_COLORS[i % PROFILE_COLORS.length] } : p
+  );
 
 const HISTORY_LIMIT_FREE = 10;
 const HISTORY_LIMIT_PREMIUM = 200;
@@ -203,7 +210,7 @@ const Podium = ({ players, totals, t }) => {
   );
 };
 
-const ScoreChart = ({ players, results, t }) => {
+const ScoreChart = ({ players, results, colors = PLAYER_COLORS, t }) => {
   const width = 300;
   const height = 160;
   const padding = { top: 10, right: 10, bottom: 8, left: 28 };
@@ -236,7 +243,7 @@ const ScoreChart = ({ players, results, t }) => {
           <polyline
             key={idx}
             fill="none"
-            stroke={PLAYER_COLORS[idx]}
+            stroke={colors[idx]}
             strokeWidth="2"
             points={series.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ")}
           />
@@ -245,7 +252,7 @@ const ScoreChart = ({ players, results, t }) => {
       <div className="flex flex-wrap gap-3 justify-center mt-2 text-xs">
         {players.map((p, idx) => (
           <div key={idx} className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: PLAYER_COLORS[idx] }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: colors[idx] }} />
             <span className="truncate max-w-[70px]">{p}</span>
           </div>
         ))}
@@ -319,7 +326,7 @@ const History = ({ t, language }) => {
             {isExpanded && (
               <div className="space-y-3 pt-1">
                 <Podium players={game.players} totals={game.totals} t={t} />
-                <ScoreChart players={game.players} results={game.results} t={t} />
+                <ScoreChart players={game.players} results={game.results} colors={game.playerColors || PLAYER_COLORS} t={t} />
                 <RoundTable players={game.players} results={game.results} language={language} t={t} />
               </div>
             )}
@@ -353,6 +360,9 @@ export default function App() {
   const [nameInput, setNameInput] = useState("");
   const [premium, setPremium] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [playerColors, setPlayerColors] = useState(PLAYER_COLORS);
+  const [profileEditor, setProfileEditor] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const t = (key, vars) => {
     let str = UI_TEXT[language][key] ?? key;
@@ -375,9 +385,10 @@ export default function App() {
       setSelectedGame(data.selectedGame || "");
       setResults(data.results || []);
       setSelectedGames(data.selectedGames || [...GAMES]);
+      if (data.playerColors) setPlayerColors(data.playerColors);
     }
     const savedProfiles = localStorage.getItem("lora-profiles");
-    if (savedProfiles) setProfiles(JSON.parse(savedProfiles));
+    if (savedProfiles) setProfiles(migrateProfiles(JSON.parse(savedProfiles)));
     const savedLanguage = localStorage.getItem("lora-lang");
     if (savedLanguage) setLanguage(savedLanguage);
   }, []);
@@ -393,6 +404,8 @@ export default function App() {
         setScreen("setup");
       } else if (screen === "home") {
         CapacitorApp.exitApp();
+      } else if (screen === "profiles" && profileEditor) {
+        setProfileEditor(null);
       } else {
         setScreen("home");
       }
@@ -408,13 +421,19 @@ export default function App() {
       if (!u) return;
       const ref = doc(db, "users", u.uid);
       const snap = await getDoc(ref);
-      const localProfiles = JSON.parse(localStorage.getItem("lora-profiles") || "[]");
+      const localProfiles = migrateProfiles(JSON.parse(localStorage.getItem("lora-profiles") || "[]"));
       const localHistory = JSON.parse(localStorage.getItem("lora-history") || "[]");
       if (snap.exists()) {
         const cloud = snap.data();
         const isPremium = cloud.premium || false;
         const historyLimit = isPremium ? HISTORY_LIMIT_PREMIUM : HISTORY_LIMIT_FREE;
-        const mergedProfiles = Array.from(new Set([...(cloud.profiles || []), ...localProfiles]));
+        const cloudProfiles = migrateProfiles(cloud.profiles || []);
+        const mergedProfiles = [...cloudProfiles];
+        localProfiles.forEach((lp) => {
+          if (!mergedProfiles.find((cp) => cp.id === lp.id || cp.name === lp.name)) {
+            mergedProfiles.push(lp);
+          }
+        });
         const mergedHistory = [...localHistory, ...(cloud.history || [])]
           .sort((a, b) => b.finishedAt - a.finishedAt)
           .filter((g, idx, arr) => arr.findIndex((x) => x.finishedAt === g.finishedAt) === idx)
@@ -478,9 +497,10 @@ export default function App() {
       selectedGame,
       results,
       selectedGames,
+      playerColors,
     };
     localStorage.setItem("lora-game", JSON.stringify(data));
-  }, [players, started, playedGames, round, selectedGame, results, selectedGames]);
+  }, [players, started, playedGames, round, selectedGame, results, selectedGames, playerColors]);
 
   const resetGame = () => {
     savedToHistoryRef.current = false;
@@ -520,14 +540,28 @@ export default function App() {
 
   const allNamesEntered = players.every((p) => p.trim().length);
 
-  const pickProfile = (name) => {
+  const pickProfile = (profile) => {
     const emptyIdx = players.findIndex((p) => !p.trim().length);
     if (emptyIdx === -1) return;
-    handleNameChange(emptyIdx, name);
+    handleNameChange(emptyIdx, profile.name);
   };
 
-  const removeProfile = (name) => {
-    const updated = profiles.filter((p) => p !== name);
+  const saveNewProfile = (name, color) => {
+    const updated = [...profiles, { id: generateId(), name: name.trim(), color }];
+    setProfiles(updated);
+    localStorage.setItem("lora-profiles", JSON.stringify(updated));
+    syncCloud(updated, JSON.parse(localStorage.getItem("lora-history") || "[]"));
+  };
+
+  const updateProfile = (id, name, color) => {
+    const updated = profiles.map((p) => (p.id === id ? { ...p, name: name.trim(), color } : p));
+    setProfiles(updated);
+    localStorage.setItem("lora-profiles", JSON.stringify(updated));
+    syncCloud(updated, JSON.parse(localStorage.getItem("lora-history") || "[]"));
+  };
+
+  const deleteProfile = (id) => {
+    const updated = profiles.filter((p) => p.id !== id);
     setProfiles(updated);
     localStorage.setItem("lora-profiles", JSON.stringify(updated));
     syncCloud(updated, JSON.parse(localStorage.getItem("lora-history") || "[]"));
@@ -544,8 +578,19 @@ export default function App() {
       const updatedProfiles = [...profiles];
       players.forEach((p) => {
         const name = p.trim();
-        if (name && !updatedProfiles.includes(name)) updatedProfiles.push(name);
+        if (name && !updatedProfiles.find((pr) => pr.name === name)) {
+          updatedProfiles.push({ id: generateId(), name, color: PROFILE_COLORS[updatedProfiles.length % PROFILE_COLORS.length] });
+        }
       });
+      const usedColors = new Set();
+      const newColors = players.map((name) => {
+        const profile = updatedProfiles.find((pr) => pr.name === name.trim());
+        let color = profile?.color ?? PROFILE_COLORS[0];
+        if (usedColors.has(color)) color = PROFILE_COLORS.find((c) => !usedColors.has(c)) ?? PROFILE_COLORS[0];
+        usedColors.add(color);
+        return color;
+      });
+      setPlayerColors(newColors);
       setProfiles(updatedProfiles);
       localStorage.setItem("lora-profiles", JSON.stringify(updatedProfiles));
       syncCloud(updatedProfiles, JSON.parse(localStorage.getItem("lora-history") || "[]"));
@@ -575,7 +620,7 @@ export default function App() {
       savedToHistoryRef.current = true;
       const saved = localStorage.getItem("lora-history") || "[]";
       const parsed = JSON.parse(saved);
-      parsed.unshift({ players, results, totals, finishedAt: Date.now() });
+      parsed.unshift({ players, results, totals, finishedAt: Date.now(), playerColors });
       const trimmed = parsed.slice(0, premium ? HISTORY_LIMIT_PREMIUM : HISTORY_LIMIT_FREE);
       localStorage.setItem("lora-history", JSON.stringify(trimmed));
       syncCloud(profiles, trimmed);
@@ -610,6 +655,9 @@ export default function App() {
             </Button>
             <Button variant="outline" onClick={() => setScreen("history")} className="w-full py-3 text-base">
               {t("home_showHistory")}
+            </Button>
+            <Button variant="outline" onClick={() => setScreen("profiles")} className="w-full py-3 text-base">
+              {t("home_profiles")}
             </Button>
             <Button variant="outline" onClick={() => setScreen("premium")} className="w-full py-3 text-base">
               {t("home_premium")}
@@ -741,6 +789,120 @@ export default function App() {
     );
   }
 
+  if (screen === "profiles") {
+    const editingProfile = profileEditor?.id ? profiles.find((p) => p.id === profileEditor.id) : null;
+    const confirmProfile = deleteConfirmId ? profiles.find((p) => p.id === deleteConfirmId) : null;
+    return (
+      <div className="min-h-screen bg-felt text-white">
+        <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-4">
+          <h2 className="text-2xl font-bold text-gold text-center">{t("profiles_title")}</h2>
+          {profiles.length === 0 && !profileEditor && (
+            <p className="text-muted text-sm text-center">{t("profiles_empty")}</p>
+          )}
+          <div className="space-y-2">
+            {profiles.map((profile) => (
+              <div key={profile.id}>
+                {profileEditor?.id === profile.id ? (
+                  <div className="bg-surface border border-rim rounded-xl p-3 space-y-3">
+                    <Input
+                      value={profileEditor.name}
+                      onChange={(e) => setProfileEditor((pe) => ({ ...pe, name: e.target.value }))}
+                      placeholder={t("profiles_namePlaceholder")}
+                    />
+                    <div>
+                      <div className="text-xs text-muted mb-2">{t("profiles_colorLabel")}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {PROFILE_COLORS.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setProfileEditor((pe) => ({ ...pe, color: c }))}
+                            className="w-7 h-7 rounded-full border-2 transition-all"
+                            style={{ backgroundColor: c, borderColor: profileEditor.color === c ? "#fff" : "transparent" }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setProfileEditor(null)} className="flex-1">{t("profiles_cancel")}</Button>
+                      <Button
+                        disabled={!profileEditor.name.trim()}
+                        onClick={() => { updateProfile(profile.id, profileEditor.name, profileEditor.color); setProfileEditor(null); }}
+                        className="flex-1"
+                      >{t("profiles_save")}</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 bg-surface border border-rim rounded-xl px-3 py-2.5">
+                    <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: profile.color }} />
+                    <span className="flex-1 font-medium">{profile.name}</span>
+                    <button
+                      onClick={() => setProfileEditor({ id: profile.id, name: profile.name, color: profile.color })}
+                      className="text-xs text-gold px-2 py-1"
+                    >{t("profiles_edit")}</button>
+                    <button
+                      onClick={() => setDeleteConfirmId(profile.id)}
+                      className="text-xs text-muted px-2 py-1"
+                    >✕</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {profileEditor?.id === null ? (
+            <div className="bg-surface border border-rim rounded-xl p-3 space-y-3">
+              <Input
+                value={profileEditor.name}
+                onChange={(e) => setProfileEditor((pe) => ({ ...pe, name: e.target.value }))}
+                placeholder={t("profiles_namePlaceholder")}
+              />
+              <div>
+                <div className="text-xs text-muted mb-2">{t("profiles_colorLabel")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {PROFILE_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setProfileEditor((pe) => ({ ...pe, color: c }))}
+                      className="w-7 h-7 rounded-full border-2 transition-all"
+                      style={{ backgroundColor: c, borderColor: profileEditor.color === c ? "#fff" : "transparent" }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setProfileEditor(null)} className="flex-1">{t("profiles_cancel")}</Button>
+                <Button
+                  disabled={!profileEditor.name.trim()}
+                  onClick={() => { saveNewProfile(profileEditor.name, profileEditor.color); setProfileEditor(null); }}
+                  className="flex-1"
+                >{t("profiles_save")}</Button>
+              </div>
+            </div>
+          ) : !profileEditor && (
+            <Button onClick={() => setProfileEditor({ id: null, name: "", color: PROFILE_COLORS[profiles.length % PROFILE_COLORS.length] })} className="w-full py-3">
+              {t("profiles_add")}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">
+            {t("profiles_back")}
+          </Button>
+        </div>
+        {deleteConfirmId && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+            <div className="bg-surface border border-rim rounded-xl p-6 space-y-4 w-full max-w-xs">
+              <h3 className="text-lg font-bold text-gold text-center">
+                {t("profiles_deleteConfirm", { name: confirmProfile?.name ?? "" })}
+              </h3>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setDeleteConfirmId(null)} className="flex-1">{t("profiles_deleteNo")}</Button>
+                <Button variant="destructive" onClick={() => { deleteProfile(deleteConfirmId); setDeleteConfirmId(null); }} className="flex-1">{t("profiles_deleteYes")}</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (screen === "setup") {
     return (
       <div className="min-h-screen bg-felt text-white flex flex-col">
@@ -761,18 +923,15 @@ export default function App() {
             <div className="space-y-2">
               <h2 className="text-base font-semibold text-center text-muted">{t("setup_savedPlayers")}</h2>
               <div className="flex flex-wrap gap-2 justify-center">
-                {profiles.map((name) => (
-                  <div key={name} className="flex items-center gap-1 bg-surface border border-rim rounded-lg pl-3 pr-1 py-1">
-                    <button onClick={() => pickProfile(name)} className="font-medium text-sm">
-                      {name}
-                    </button>
-                    <button
-                      onClick={() => removeProfile(name)}
-                      className="w-6 h-6 rounded text-muted hover:text-white text-sm"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                {profiles.map((profile) => (
+                  <button
+                    key={profile.id}
+                    onClick={() => pickProfile(profile)}
+                    className="flex items-center gap-2 bg-surface border border-rim rounded-lg px-3 py-1.5"
+                  >
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: profile.color }} />
+                    <span className="font-medium text-sm">{profile.name}</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -873,7 +1032,7 @@ export default function App() {
         <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5 text-center">
           <h2 className="text-2xl font-bold text-gold">{t("game_finished")}</h2>
           <Podium players={players} totals={totals} t={t} />
-          <ScoreChart players={players} results={results} t={t} />
+          <ScoreChart players={players} results={results} colors={playerColors} t={t} />
           <RoundTable players={players} results={results} language={language} t={t} />
           <Button variant="outline" onClick={resetGame} className="w-full py-3">{t("game_newGame")}</Button>
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-3">{t("game_backToMenu").replace("← ", "")}</Button>

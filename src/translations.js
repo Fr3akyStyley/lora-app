@@ -56,6 +56,21 @@ export const UI_TEXT = {
     login_namePlaceholder: "Tvoje ime",
     login_save: "Sačuvaj",
 
+    home_profiles: "👥 Profili",
+
+    profiles_title: "Profili igrača",
+    profiles_back: "Nazad",
+    profiles_add: "Dodaj profil",
+    profiles_namePlaceholder: "Ime igrača",
+    profiles_save: "Sačuvaj",
+    profiles_cancel: "Otkaži",
+    profiles_deleteConfirm: "Obrisati profil {name}?",
+    profiles_deleteYes: "Da, obriši",
+    profiles_deleteNo: "Otkaži",
+    profiles_empty: "Nema sačuvanih profila.",
+    profiles_colorLabel: "Boja:",
+    profiles_edit: "Uredi",
+
     home_premium: "⭐ Premium",
     premium_title: "⭐ Premium",
     premium_status_active: "Premium je aktivan na tvom nalogu. Hvala na podršci! 🎉",
@@ -126,6 +141,21 @@ export const UI_TEXT = {
     login_signedInAs: "Signed in as {name}",
     login_namePlaceholder: "Your name",
     login_save: "Save",
+
+    home_profiles: "👥 Profiles",
+
+    profiles_title: "Player profiles",
+    profiles_back: "Back",
+    profiles_add: "Add profile",
+    profiles_namePlaceholder: "Player name",
+    profiles_save: "Save",
+    profiles_cancel: "Cancel",
+    profiles_deleteConfirm: "Delete profile {name}?",
+    profiles_deleteYes: "Yes, delete",
+    profiles_deleteNo: "Cancel",
+    profiles_empty: "No saved profiles.",
+    profiles_colorLabel: "Color:",
+    profiles_edit: "Edit",
 
     home_premium: "⭐ Premium",
     premium_title: "⭐ Premium",
