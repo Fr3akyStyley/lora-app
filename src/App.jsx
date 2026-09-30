@@ -24,10 +24,10 @@ const GAMES = [
 // Igre kod kojih igrači "nose" karte/ruke do ukupnog zbira (8), a poeni se računaju automatski
 const TRICKS_CONFIG = {
   "Što više": { total: 8, per: -2 },
-  "Što manje": { total: 8, per: 2, zeroBonus: -16 },
+  "Što manje": { total: 8, per: 2, zeroBonus: -10 },
   "Što više srca": { total: 8, per: -2 },
   "Što manje srca": { total: 8, per: 2 },
-  "Dame": { total: 4, per: 4, allBonus: -16 },
+  "Dame": { total: 4, per: 2, allBonus: -16 },
 };
 
 // Igre gde se bira igrač(i) koji nose poene
@@ -1146,7 +1146,7 @@ export default function App() {
 
   const tackiceMultiplier = roundDouble ? 2 : 1;
   const tackiceScores = players.map((_, idx) =>
-    idx === roundWinner ? -8 * tackiceMultiplier : (roundRemaining[idx] + roundCounts[idx]) * tackiceMultiplier
+    idx === roundWinner ? -10 * tackiceMultiplier : (roundRemaining[idx] * 2 + roundCounts[idx]) * tackiceMultiplier
   );
 
   const pickConfig = PICK_CONFIG[selectedGame];
