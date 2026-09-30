@@ -386,6 +386,7 @@ export default function App() {
       setResults(data.results || []);
       setSelectedGames(data.selectedGames || [...GAMES]);
       if (data.playerColors) setPlayerColors(data.playerColors);
+      if (data.historySaved) savedToHistoryRef.current = true;
     }
     const savedProfiles = localStorage.getItem("lora-profiles");
     if (savedProfiles) setProfiles(migrateProfiles(JSON.parse(savedProfiles)));
@@ -624,6 +625,8 @@ export default function App() {
       const trimmed = parsed.slice(0, premium ? HISTORY_LIMIT_PREMIUM : HISTORY_LIMIT_FREE);
       localStorage.setItem("lora-history", JSON.stringify(trimmed));
       syncCloud(profiles, trimmed);
+      const gameData = JSON.parse(localStorage.getItem("lora-game") || "{}");
+      localStorage.setItem("lora-game", JSON.stringify({ ...gameData, historySaved: true }));
     }
   }, [round, totalRounds, premium]);
 
