@@ -352,6 +352,7 @@ export default function App() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [premium, setPremium] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const t = (key, vars) => {
     let str = UI_TEXT[language][key] ?? key;
@@ -885,6 +886,7 @@ export default function App() {
 
   if (!selectedGame) {
     return (
+      <>
       <div className="min-h-screen bg-felt text-white">
         <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
           <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
@@ -916,10 +918,23 @@ export default function App() {
           <RoundTable players={players} results={results} language={language} t={t} />
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={undoLastRound} className="flex-1">{t("game_undoRound")}</Button>
-            <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
+            <Button variant="destructive" onClick={() => setShowResetConfirm(true)} className="flex-1">{t("game_reset")}</Button>
           </div>
         </div>
       </div>
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-surface border border-rim rounded-xl p-6 space-y-4 w-full max-w-xs">
+            <h3 className="text-lg font-bold text-gold text-center">{t("game_resetConfirmTitle")}</h3>
+            <p className="text-sm text-muted text-center">{t("game_resetConfirmText")}</p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setShowResetConfirm(false)} className="flex-1">{t("game_resetConfirmNo")}</Button>
+              <Button variant="destructive" onClick={() => { setShowResetConfirm(false); resetGame(); }} className="flex-1">{t("game_resetConfirmYes")}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -989,6 +1004,7 @@ export default function App() {
   );
 
   return (
+    <>
     <div className="min-h-screen bg-felt text-white">
       <div className="max-w-sm mx-auto w-full px-4 py-6 space-y-4">
         <Button variant="outline" onClick={() => setScreen("home")} className="w-full py-2 text-sm">
@@ -1089,10 +1105,23 @@ export default function App() {
         ) : null}
         <div className="flex gap-2">
           <Button variant="outline" onClick={cancelGameSelection} className="flex-1">{t("game_undoRound")}</Button>
-          <Button variant="destructive" onClick={resetGame} className="flex-1">{t("game_reset")}</Button>
+          <Button variant="destructive" onClick={() => setShowResetConfirm(true)} className="flex-1">{t("game_reset")}</Button>
         </div>
         <RoundTable players={players} results={results} language={language} t={t} />
       </div>
     </div>
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-surface border border-rim rounded-xl p-6 space-y-4 w-full max-w-xs">
+            <h3 className="text-lg font-bold text-gold text-center">{t("game_resetConfirmTitle")}</h3>
+            <p className="text-sm text-muted text-center">{t("game_resetConfirmText")}</p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setShowResetConfirm(false)} className="flex-1">{t("game_resetConfirmNo")}</Button>
+              <Button variant="destructive" onClick={() => { setShowResetConfirm(false); resetGame(); }} className="flex-1">{t("game_resetConfirmYes")}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
